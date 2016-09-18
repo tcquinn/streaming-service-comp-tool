@@ -1,13 +1,49 @@
 $(document).ready(function() {
 	$('#searchResultsTableBody').data('searchResults', []);
 	$('#movieListTableBody').data('movieList', []);
-	drawSearchResultsTable();
+	drawSearchResultsTable("Enter movie title above to search for movies");
 	drawMovieListTable();
 	$('button.searchButton').click(function() {
+		$('button').prop("disabled", true);
+		$('button.searchButton').html("Working...");
 		var searchTerm = $('#searchBox').val();
-		updateSearchResults(searchTerm);
-		drawSearchResultsTable();
 		$('#searchBox').val('');
+		$.ajax({
+			url: "http://www.canistream.it/services/search",
+			data: {
+				movieName: searchTerm
+			},
+			dataType: "jsonp",
+			success: function(data, textStatus, jqXHR) {
+				var searchResults=[];
+				if(data.length > 0) {
+					var statusMessage = "Found search results";
+					for(var i=0; i < data.length; i++) {
+						searchResults[i] = {
+							id: data[i]['_id'],
+							title: data[i]['title'],
+							releaseYear: data[i]['year']
+						};
+					}
+				}
+				else {
+					var statusMessage = "No search results";
+				}
+				$('#searchResultsTableBody').data('searchResults', searchResults);
+				drawSearchResultsTable(statusMessage);
+			},
+			error: function(jqXHR, textStatus, errorThrown) {
+				console.log("Error in accessing http://www.canistream.it/services/search");
+				var searchResults=[];
+				var statusMessage = "Error in accessing CanIStream.It";
+				$('#searchResultsTableBody').data('searchResults', searchResults);
+				drawSearchResultsTable(statusMessage);
+			},
+			complete: function(jqXHR, textStatus) {
+				$('button.searchButton').html("Search")
+				$('button').prop("disabled", false);
+			}
+		});
 	});
 	$('#searchBox').keyup(function(event) {
 		if(event.keyCode==13) {
@@ -16,52 +52,113 @@ $(document).ready(function() {
 	});
 	$(document).on('click','button.addButton', function() {
 		var searchResultIndex = $(this).parent().parent().index();
-		addSearchResultToMovieList(searchResultIndex);
+		var searchResults = $('#searchResultsTableBody').data('searchResults');
+		var searchResult = searchResults[searchResultIndex];
+		searchResults.splice(searchResultIndex,1);
+		$('#searchResultsTableBody').data('searchResults', searchResults);
+		if(searchResults.length > 0) {
+			var statusMessage = "Search results found";
+		}
+		else {
+			var statusMessage = "No search results";
+		}
+		drawSearchResultsTable(statusMessage);
+		var movieList = $('#movieListTableBody').data('movieList');
+		movieList.push({
+			id: searchResult.id,
+			title: searchResult.title,
+			releaseYear: searchResult.releaseYear,
+			netflixStreaming: "?",
+			amazonStreaming: "?",
+			updatedStreaming: "Never",
+			amazonRental: "?",
+			iTunesRental: "?",
+			googlePlayRental: "?",
+			vuduRental: "?",
+			updatedRental: "Never"
+		});
+		$('#movieListTableBody').data('movieList', movieList);
 		drawMovieListTable();
-		deleteSearchResult(searchResultIndex);
-		drawSearchResultsTable();
 	});
-	$(document).on('click','button.updateButton', function() {
+	$(document).on('click','button.updateStreamingButton', function() {
+		$('button').prop("disabled", true);
+		$(this).html("Working...");
 		var movieItemIndex = $(this).parent().parent().index();
-		updateMovieItem(movieItemIndex);
-		drawMovieListTable();
+		var movieList = $('#movieListTableBody').data('movieList');
+		$.ajax({
+			url: "http://www.canistream.it/services/query",
+			data: {
+				movieId: movieList[movieItemIndex]['id'],
+				attributes: "1",
+				mediaType: "streaming"
+			},
+			dataType: "jsonp",
+			context: this,
+			success: function(data, textStatus, jqXHR) {
+				movieList[movieItemIndex]['netflixStreaming'] = extractStreamingInfo(data, 'netflix_instant');
+				movieList[movieItemIndex]['amazonStreaming'] = extractStreamingInfo(data, 'amazon_prime_instant_video');
+				movieList[movieItemIndex]['updatedStreaming'] = new Date();
+				$('#movieListTableBody').data('movieList', movieList);
+				drawMovieListTable();;
+			},
+			error: function(jqXHR, textStatus, errorThrown) {
+				console.log("Error in accessing http://www.canistream.it/services/query");
+			},
+			complete: function(jqXHR, textStatus) {
+				$(this).html("Update")
+				$('button').prop("disabled", false);
+			}
+		});
+	});
+	$(document).on('click','button.updateRentalButton', function() {
+		$('button').prop("disabled", true);
+		$(this).html("Working...");
+		var movieItemIndex = $(this).parent().parent().index();
+		var movieList = $('#movieListTableBody').data('movieList');
+		$.ajax({
+			url: "http://www.canistream.it/services/query",
+			data: {
+				movieId: movieList[movieItemIndex]['id'],
+				attributes: "1",
+				mediaType: "rental"
+			},
+			dataType: "jsonp",
+			context: this,
+			success: function(data, textStatus, jqXHR) {
+				movieList[movieItemIndex]['amazonRental'] = extractStreamingInfo(data, 'amazon_video_rental');
+				movieList[movieItemIndex]['iTunesRental'] = extractStreamingInfo(data, 'apple_itunes_rental');
+				movieList[movieItemIndex]['googlePlayRental'] = extractStreamingInfo(data, 'android_rental');
+				movieList[movieItemIndex]['vuduRental'] = extractStreamingInfo(data, 'vudu_rental');
+				movieList[movieItemIndex]['updatedRental'] = new Date();
+				$('#movieListTableBody').data('movieList', movieList);
+				drawMovieListTable();;
+			},
+			error: function(jqXHR, textStatus, errorThrown) {
+				console.log("Error in accessing http://www.canistream.it/services/query");
+			},
+			complete: function(jqXHR, textStatus) {
+				$(this).html("Update")
+				$('button').prop("disabled", false);
+			}
+		});
 	});
 	$(document).on('click','button.removeButton', function() {
 		var movieItemIndex = $(this).parent().parent().index();
-		removeMovieItem(movieItemIndex);
+		var movieList = $('#movieListTableBody').data('movieList');
+		movieList.splice(movieItemIndex,1);
+		$('#movieListTableBody').data('movieList', movieList);
 		drawMovieListTable();
 	});
 });
 
-var updateSearchResults = function(searchTerm) {
-	var searchResults = [];
-	if(Math.random() > 0.5) {
-		numSequels = Math.floor(Math.random()*4);
-		initialReleaseYear = 1980 + Math.floor(Math.random()*30);
-		searchResults[0] = {
-			id: Math.floor(Math.random()*1000000),
-			title: searchTerm,
-			releaseYear: initialReleaseYear
-		};
-		if(numSequels > 0) {
-			for(var i=1; i <= numSequels; i++){
-				searchResults[i] = {
-					id: Math.floor(Math.random()*1000000),
-				title: searchTerm + " " + String(i+1),
-					releaseYear: initialReleaseYear + 2*i
-				};
-			}
-		}
-	}
-	$('#searchResultsTableBody').data('searchResults', searchResults);
-}
-
-var drawSearchResultsTable = function() {
+var drawSearchResultsTable = function(statusMessage) {
 	var searchResults = $('#searchResultsTableBody').data('searchResults');
 	$('#searchResultsTableBody').empty();
 	if(searchResults.length===0) {
 		var searchResultsTableRowHTML = (
-			"<tr><td colspan='3'><em>No search results</em></td></tr>"
+			"<tr><td colspan='3'><em>" +
+			statusMessage +
+			"</em></td></tr>"
 		)
 		$('#searchResultsTableBody').append(searchResultsTableRowHTML);
 	}
@@ -78,52 +175,6 @@ var drawSearchResultsTable = function() {
 				);
 			$('#searchResultsTableBody').append(searchResultsTableRowHTML);
 		}
-	}
-}
-
-var addSearchResultToMovieList = function(searchResultIndex) {
-	var movieList = $('#movieListTableBody').data('movieList');
-	var searchResult = $('#searchResultsTableBody').data('searchResults')[searchResultIndex];
-	var streamingInfo = getStreamingInfo(searchResult.id);
-	var newMovieListItem = {
-		id: searchResult.id,
-		title: searchResult.title,
-		releaseYear: searchResult.releaseYear,
-		netflixStreaming: streamingInfo.netflixStreaming,
-		netflixRental: streamingInfo.netflixRental,
-		amazonStreaming: streamingInfo.amazonStreaming,
-		amazonRental: streamingInfo.amazonRental,
-		huluStreaming: streamingInfo.huluStreaming,
-		huluRental: streamingInfo.huluRental,
-		vuduStreaming: streamingInfo.vuduStreaming,
-		vuduRental: streamingInfo.vuduRental,
-		updated: streamingInfo.updated
-	}
-	movieList.push(newMovieListItem);
-	$('#movieListTableBody').data('movieList', movieList);
-}
-
-var getStreamingInfo = function(movieID) {
-	var streamingInfo = {
-		netflixStreaming: randomStreamingInfo(),
-		netflixRental: randomStreamingInfo(),
-		amazonStreaming: randomStreamingInfo(),
-		amazonRental: randomStreamingInfo(),
-		huluStreaming: randomStreamingInfo(),
-		huluRental: randomStreamingInfo(),
-		vuduStreaming: randomStreamingInfo(),
-		vuduRental: randomStreamingInfo(),
-		updated: new Date()
-	}
-	return(streamingInfo);
-}
-
-var randomStreamingInfo = function() {
-	if(Math.random() > 0.5) {
-		return("$" + Math.floor(Math.random()*4) + ".99");
-	}
-	else {
-		return("");
 	}
 }
 
@@ -146,23 +197,23 @@ var drawMovieListTable = function() {
 				"</td><td>" +
 				movieList[i].netflixStreaming +
 				"</td><td>" +
-				movieList[i].netflixRental +
-				"</td><td>" +
 				movieList[i].amazonStreaming +
+				"</td><td>" +
+				formatDate(movieList[i].updatedStreaming) +
+				"</td><td>" +
+				"<button class='updateStreamingButton'>Update</button>" +
 				"</td><td>" +
 				movieList[i].amazonRental +
 				"</td><td>" +
-				movieList[i].huluStreaming +
+				movieList[i].iTunesRental +
 				"</td><td>" +
-				movieList[i].huluRental +
-				"</td><td>" +
-				movieList[i].vuduStreaming +
+				movieList[i].googlePlayRental +
 				"</td><td>" +
 				movieList[i].vuduRental +
 				"</td><td>" +
-				formatDate(movieList[i].updated) +
+				formatDate(movieList[i].updatedRental) +
 				"</td><td>" +
-				"<button class='updateButton'>Update</button>" +
+				"<button class='updateRentalButton'>Update</button>" +
 				"</td><td>" +
 				"<button class='removeButton'>Remove</button>" +
 				"</td></tr>"
@@ -172,51 +223,57 @@ var drawMovieListTable = function() {
 	}
 }
 
-var deleteSearchResult = function(searchResultIndex) {
-	var searchResults = $('#searchResultsTableBody').data('searchResults');
-	searchResults.splice(searchResultIndex,1);
-	$('#searchResultsTableBody').data('searchResults', searchResults);
+var extractStreamingInfo = function(data, serviceName) {
+	if(serviceName in data) {
+		if('price' in data[serviceName]) {
+			if(data[serviceName]['price'] > 0){
+				return("Y ($" + data[serviceName]['price'] + ")");
+			}
+			else {
+				return("Y (subscription)");
+			}
+		}
+		else {
+			return("Y");
+		}
+	}
+	else {
+		return("N");
+	}
 }
 
-var updateMovieItem = function(movieItemIndex) {
-	var movieList = $('#movieListTableBody').data('movieList');
-	var streamingInfo = getStreamingInfo(movieList[movieItemIndex].id);
-	movieList[movieItemIndex].netflixStreaming = streamingInfo.netflixStreaming,
-	movieList[movieItemIndex].netflixRental = streamingInfo.netflixRental,
-	movieList[movieItemIndex].amazonStreaming = streamingInfo.amazonStreaming,
-	movieList[movieItemIndex].amazonRental = streamingInfo.amazonRental,
-	movieList[movieItemIndex].huluStreaming = streamingInfo.huluStreaming,
-	movieList[movieItemIndex].huluRental = streamingInfo.huluRental,
-	movieList[movieItemIndex].vuduStreaming = streamingInfo.vuduStreaming,
-	movieList[movieItemIndex].vuduRental = streamingInfo.vuduRental,
-	movieList[movieItemIndex].updated = streamingInfo.updated
-	$('#movieListTableBody').data('movieList', movieList);
-}
-
-var removeMovieItem = function(movieItemIndex) {
-	var movieList = $('#movieListTableBody').data('movieList');
-	movieList.splice(movieItemIndex,1);
-	$('#movieListTableBody').data('movieList', movieList);
+var randomStreamingInfo = function() {
+	if(Math.random() > 0.5) {
+		return("$" + Math.floor(Math.random()*4) + ".99");
+	}
+	else {
+		return("");
+	}
 }
 
 function formatDate(date) {
-	var hours = date.getHours();
-	var minutes = date.getMinutes();
-	var seconds = date.getSeconds();
-	hours = hours < 10 ? '0'+hours : hours;
-	minutes = minutes < 10 ? '0'+minutes : minutes;
-	seconds = seconds < 10 ? '0'+seconds : seconds;
-	return (
-		(date.getMonth() + 1) +
-		"/" +
-		date.getDate() +
-		"/" +
-		date.getFullYear() +
-		" " +
-		hours +
-		":" +
-		minutes +
-		":" +
-		seconds
-	)
+	if(typeof(date)==="string"){
+		return(date);
+	}
+	else{
+		var hours = date.getHours();
+		var minutes = date.getMinutes();
+		var seconds = date.getSeconds();
+		hours = hours < 10 ? '0'+hours : hours;
+		minutes = minutes < 10 ? '0'+minutes : minutes;
+		seconds = seconds < 10 ? '0'+seconds : seconds;
+		return (
+			(date.getMonth() + 1) +
+			"/" +
+			date.getDate() +
+			"/" +
+			date.getFullYear() +
+			" " +
+			hours +
+			":" +
+			minutes +
+			":" +
+			seconds
+		)
+	}
 }
