@@ -9,7 +9,7 @@ $(document).ready(function() {
 		var searchTerm = $('#searchBox').val();
 		$('#searchBox').val('');
 		$.ajax({
-			url: "https://www.canistream.it/services/search",
+			url: "http://www.canistream.it/services/search",
 			data: {
 				movieName: searchTerm
 			},
