@@ -67,6 +67,7 @@ $(document).ready(function() {
 			updatedRental: "Never"
 		});
 		drawMovieListTable(movieList);
+		$('button.updateInfoButton').last().click();
 	});
 	$(document).on('click','button.updateInfoButton', function() {
 		$('button').prop("disabled", true);
