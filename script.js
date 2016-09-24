@@ -1,8 +1,8 @@
 $(document).ready(function() {
-	$('#searchResultsTableBody').data('searchResults', []);
-	$('#movieListTableBody').data('movieList', []);
-	drawSearchResultsTable("Enter movie title above to search for movies");
-	drawMovieListTable();
+	var searchResults = [];
+	var movieList = [];
+	drawSearchResultsTable(searchResults, "Enter movie title above to search for movies");
+	drawMovieListTable(movieList);
 	$('button.searchButton').click(function() {
 		$('button').prop("disabled", true);
 		$('button.searchButton').html("Working...");
@@ -15,7 +15,7 @@ $(document).ready(function() {
 			},
 			dataType: "jsonp",
 			success: function(data, textStatus, jqXHR) {
-				var searchResults=[];
+				searchResults=[];
 				if(data.length > 0) {
 					var statusMessage = "Found search results";
 					for(var i=0; i < data.length; i++) {
@@ -29,15 +29,12 @@ $(document).ready(function() {
 				else {
 					var statusMessage = "No search results";
 				}
-				$('#searchResultsTableBody').data('searchResults', searchResults);
-				drawSearchResultsTable(statusMessage);
+				drawSearchResultsTable(searchResults, statusMessage);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
-				console.log("Error in accessing http://www.canistream.it/services/search");
-				var searchResults=[];
+				searchResults=[];
 				var statusMessage = "Error in accessing CanIStream.It";
-				$('#searchResultsTableBody').data('searchResults', searchResults);
-				drawSearchResultsTable(statusMessage);
+				drawSearchResultsTable(searchResults, statusMessage);
 			},
 			complete: function(jqXHR, textStatus) {
 				$('button.searchButton').html("Search")
@@ -52,18 +49,15 @@ $(document).ready(function() {
 	});
 	$(document).on('click','button.addButton', function() {
 		var searchResultIndex = $(this).parent().parent().index();
-		var searchResults = $('#searchResultsTableBody').data('searchResults');
 		var searchResult = searchResults[searchResultIndex];
 		searchResults.splice(searchResultIndex,1);
-		$('#searchResultsTableBody').data('searchResults', searchResults);
 		if(searchResults.length > 0) {
 			var statusMessage = "Search results found";
 		}
 		else {
 			var statusMessage = "No search results";
 		}
-		drawSearchResultsTable(statusMessage);
-		var movieList = $('#movieListTableBody').data('movieList');
+		drawSearchResultsTable(searchResults, statusMessage);
 		movieList.push({
 			id: searchResult.id,
 			title: searchResult.title,
@@ -77,14 +71,12 @@ $(document).ready(function() {
 			vuduRental: "?",
 			updatedRental: "Never"
 		});
-		$('#movieListTableBody').data('movieList', movieList);
-		drawMovieListTable();
+		drawMovieListTable(movieList);
 	});
 	$(document).on('click','button.updateStreamingButton', function() {
 		$('button').prop("disabled", true);
 		$(this).html("Working...");
 		var movieItemIndex = $(this).parent().parent().index();
-		var movieList = $('#movieListTableBody').data('movieList');
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
 			data: {
@@ -98,11 +90,9 @@ $(document).ready(function() {
 				movieList[movieItemIndex]['netflixStreaming'] = extractStreamingInfo(data, 'netflix_instant');
 				movieList[movieItemIndex]['amazonStreaming'] = extractStreamingInfo(data, 'amazon_prime_instant_video');
 				movieList[movieItemIndex]['updatedStreaming'] = new Date();
-				$('#movieListTableBody').data('movieList', movieList);
-				drawMovieListTable();;
+				drawMovieListTable(movieList);;
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
-				console.log("Error in accessing http://www.canistream.it/services/query");
 			},
 			complete: function(jqXHR, textStatus) {
 				$(this).html("Update")
@@ -114,7 +104,6 @@ $(document).ready(function() {
 		$('button').prop("disabled", true);
 		$(this).html("Working...");
 		var movieItemIndex = $(this).parent().parent().index();
-		var movieList = $('#movieListTableBody').data('movieList');
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
 			data: {
@@ -130,11 +119,9 @@ $(document).ready(function() {
 				movieList[movieItemIndex]['googlePlayRental'] = extractStreamingInfo(data, 'android_rental');
 				movieList[movieItemIndex]['vuduRental'] = extractStreamingInfo(data, 'vudu_rental');
 				movieList[movieItemIndex]['updatedRental'] = new Date();
-				$('#movieListTableBody').data('movieList', movieList);
-				drawMovieListTable();;
+				drawMovieListTable(movieList);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
-				console.log("Error in accessing http://www.canistream.it/services/query");
 			},
 			complete: function(jqXHR, textStatus) {
 				$(this).html("Update")
@@ -144,27 +131,21 @@ $(document).ready(function() {
 	});
 	$(document).on('click','button.removeButton', function() {
 		var movieItemIndex = $(this).parent().parent().index();
-		var movieList = $('#movieListTableBody').data('movieList');
 		movieList.splice(movieItemIndex,1);
-		$('#movieListTableBody').data('movieList', movieList);
-		drawMovieListTable();
+		drawMovieListTable(movieList);
 	});
 });
 
-var drawSearchResultsTable = function(statusMessage) {
-	var searchResults = $('#searchResultsTableBody').data('searchResults');
+var drawSearchResultsTable = function(searchResults) {
 	$('#searchResultsTableBody').empty();
 	if(searchResults.length===0) {
-		var searchResultsTableRowHTML = (
-			"<tr><td colspan='3'><em>" +
-			statusMessage +
-			"</em></td></tr>"
-		)
-		$('#searchResultsTableBody').append(searchResultsTableRowHTML);
+		$('#searchResultsTableBody').append(
+			"<tr><td colspan='3'><em>No search results</em></td></tr>"
+		);
 	}
 	else {
 		for(var i=0; i < searchResults.length; i++) {
-			var searchResultsTableRowHTML = (
+			$('#searchResultsTableBody').append(
 				"<tr><td>" +
 				searchResults[i].title +
 				"</td><td>" +
@@ -172,24 +153,21 @@ var drawSearchResultsTable = function(statusMessage) {
 				"</td><td>" +
 				"<button class='addButton'>Add</button>" +
 				"</td></tr>"
-				);
-			$('#searchResultsTableBody').append(searchResultsTableRowHTML);
+			);
 		}
 	}
 }
 
-var drawMovieListTable = function() {
-	var movieList = $('#movieListTableBody').data('movieList');
+var drawMovieListTable = function(movieList) {
 	$('#movieListTableBody').empty();
 	if(movieList.length===0){
-		var movieListTableRowHTML = (
+		$('#movieListTableBody').append(
 			"<tr><td colspan='13'><em>No movies in list</em></td></tr>"
-		);
-		$('#movieListTableBody').append(movieListTableRowHTML);		
+		);		
 	}
 	else {
 		for(var i=0; i < movieList.length; i++) {
-			var movieListTableRowHTML = (
+			$('#movieListTableBody').append(
 				"<tr><td>" +
 				movieList[i].title +
 				"</td><td>" +
@@ -218,7 +196,6 @@ var drawMovieListTable = function() {
 				"<button class='removeButton'>Remove</button>" +
 				"</td></tr>"
 			);
-			$('#movieListTableBody').append(movieListTableRowHTML);
 		}
 	}
 }
