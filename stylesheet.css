@@ -2,24 +2,29 @@
 	font-family: sans-serif;
 }
 
-form {
-	display: inline-block;
-}
-
 button {
 	border-radius: 5px;
 }
 
-.highlighted {
-	background-color: #CC0000;
+table {
+    border-collapse: collapse;
 }
 
-thead {
-	font-weight: bold;
+table, th, td {
+    border: 1px solid black;
+}
+
+th, td {
+	padding: 5px
+}
+th {
+	vertical-align: bottom;
+	text-align: left;
+	font-weight: bold
 }
 
 td {
-	border: 1px solid black;
+	vertical-align: top
 }
 
 .error-section {
