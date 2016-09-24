@@ -17,7 +17,7 @@ $(document).ready(function() {
 			success: function(data, textStatus, jqXHR) {
 				searchResults=[];
 				if(data.length > 0) {
-					var statusMessage = "Found search results";
+					clearSearchResultsErrorMessage();
 					for(var i=0; i < data.length; i++) {
 						searchResults[i] = {
 							id: data[i]['_id'],
@@ -27,14 +27,14 @@ $(document).ready(function() {
 					}
 				}
 				else {
-					var statusMessage = "No search results";
+					displaySearchResultsErrorMessage("No search results returned");
 				}
-				drawSearchResultsTable(searchResults, statusMessage);
+				drawSearchResultsTable(searchResults);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
 				searchResults=[];
-				var statusMessage = "Error in accessing CanIStream.It";
-				drawSearchResultsTable(searchResults, statusMessage);
+				displaySearchResultsErrorMessage("Error in accessing CanIStream.It");
+				drawSearchResultsTable(searchResults);
 			},
 			complete: function(jqXHR, textStatus) {
 				$('button.searchButton').html("Search")
@@ -51,13 +51,7 @@ $(document).ready(function() {
 		var searchResultIndex = $(this).parent().parent().index();
 		var searchResult = searchResults[searchResultIndex];
 		searchResults.splice(searchResultIndex,1);
-		if(searchResults.length > 0) {
-			var statusMessage = "Search results found";
-		}
-		else {
-			var statusMessage = "No search results";
-		}
-		drawSearchResultsTable(searchResults, statusMessage);
+		drawSearchResultsTable(searchResults);
 		movieList.push({
 			id: searchResult.id,
 			title: searchResult.title,
@@ -87,12 +81,14 @@ $(document).ready(function() {
 			dataType: "jsonp",
 			context: this,
 			success: function(data, textStatus, jqXHR) {
+				clearMovieListErrorMessage();
 				movieList[movieItemIndex]['netflixStreaming'] = extractStreamingInfo(data, 'netflix_instant');
 				movieList[movieItemIndex]['amazonStreaming'] = extractStreamingInfo(data, 'amazon_prime_instant_video');
 				movieList[movieItemIndex]['updatedStreaming'] = new Date();
-				drawMovieListTable(movieList);;
+				drawMovieListTable(movieList);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
+				displayMovieListErrorMessage("Error in accessing CanIStream.It")
 			},
 			complete: function(jqXHR, textStatus) {
 				$(this).html("Update")
@@ -114,6 +110,7 @@ $(document).ready(function() {
 			dataType: "jsonp",
 			context: this,
 			success: function(data, textStatus, jqXHR) {
+				clearMovieListErrorMessage();
 				movieList[movieItemIndex]['amazonRental'] = extractStreamingInfo(data, 'amazon_video_rental');
 				movieList[movieItemIndex]['iTunesRental'] = extractStreamingInfo(data, 'apple_itunes_rental');
 				movieList[movieItemIndex]['googlePlayRental'] = extractStreamingInfo(data, 'android_rental');
@@ -122,6 +119,7 @@ $(document).ready(function() {
 				drawMovieListTable(movieList);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
+				displayMovieListErrorMessage("Error in accessing CanIStream.It")
 			},
 			complete: function(jqXHR, textStatus) {
 				$(this).html("Update")
@@ -200,6 +198,26 @@ var drawMovieListTable = function(movieList) {
 	}
 }
 
+var displaySearchResultsErrorMessage = function(errorMessage) {
+	$('#searchResultsErrorBox').text(errorMessage);
+	$('#searchResultsErrorBox').css("display","block")
+}
+
+var clearSearchResultsErrorMessage = function() {
+	$('#searchResultsErrorBox').empty();
+	$('#searchResultsErrorBox').css("display","none")
+}
+
+var displayMovieListErrorMessage = function(errorMessage) {
+	$('#movieListErrorBox').text(errorMessage);
+	$('#movieListErrorBox').css("display","block")
+}
+
+var clearMovieListErrorMessage = function() {
+	$('#movieListErrorBox').empty();
+	$('#movieListErrorBox').css("display","none")
+}
+
 var extractStreamingInfo = function(data, serviceName) {
 	if(serviceName in data) {
 		if('price' in data[serviceName]) {
@@ -216,15 +234,6 @@ var extractStreamingInfo = function(data, serviceName) {
 	}
 	else {
 		return("N");
-	}
-}
-
-var randomStreamingInfo = function() {
-	if(Math.random() > 0.5) {
-		return("$" + Math.floor(Math.random()*4) + ".99");
-	}
-	else {
-		return("");
 	}
 }
 

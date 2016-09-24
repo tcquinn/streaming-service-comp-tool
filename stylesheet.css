@@ -22,3 +22,8 @@ td {
 	border: 1px solid black;
 }
 
+.error-section {
+	display: none;
+	font-weight: bold;
+	color: red
+}
