@@ -1,6 +1,7 @@
 $(document).ready(function() {
 	var searchResults = [];
 	var movieList = [];
+	var infoUpdateRequestsPending = 0;
 	drawSearchResultsTable(searchResults, "Enter movie title above to search for movies");
 	drawMovieListTable(movieList);
 	$('button.searchButton').click(function() {
@@ -67,10 +68,11 @@ $(document).ready(function() {
 		});
 		drawMovieListTable(movieList);
 	});
-	$(document).on('click','button.updateStreamingButton', function() {
+	$(document).on('click','button.updateInfoButton', function() {
 		$('button').prop("disabled", true);
 		$(this).html("Working...");
 		var movieItemIndex = $(this).parent().parent().index();
+		infoUpdateRequestsPending = infoUpdateRequestsPending + 2;
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
 			data: {
@@ -91,15 +93,13 @@ $(document).ready(function() {
 				displayMovieListErrorMessage("Error in accessing CanIStream.It")
 			},
 			complete: function(jqXHR, textStatus) {
-				$(this).html("Update")
-				$('button').prop("disabled", false);
+				infoUpdateRequestsPending--;
+				if(infoUpdateRequestsPending == 0) {
+					$(this).html("Update")
+					$('button').prop("disabled", false);					
+				}
 			}
 		});
-	});
-	$(document).on('click','button.updateRentalButton', function() {
-		$('button').prop("disabled", true);
-		$(this).html("Working...");
-		var movieItemIndex = $(this).parent().parent().index();
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
 			data: {
@@ -122,8 +122,11 @@ $(document).ready(function() {
 				displayMovieListErrorMessage("Error in accessing CanIStream.It")
 			},
 			complete: function(jqXHR, textStatus) {
-				$(this).html("Update")
-				$('button').prop("disabled", false);
+				infoUpdateRequestsPending--;
+				if(infoUpdateRequestsPending ==0) {
+					$(this).html("Update")
+					$('button').prop("disabled", false);					
+				}
 			}
 		});
 	});
@@ -177,8 +180,6 @@ var drawMovieListTable = function(movieList) {
 				"</td><td>" +
 				formatDate(movieList[i].updatedStreaming) +
 				"</td><td>" +
-				"<button class='updateStreamingButton'>Update</button>" +
-				"</td><td>" +
 				movieList[i].amazonRental +
 				"</td><td>" +
 				movieList[i].iTunesRental +
@@ -189,7 +190,7 @@ var drawMovieListTable = function(movieList) {
 				"</td><td>" +
 				formatDate(movieList[i].updatedRental) +
 				"</td><td>" +
-				"<button class='updateRentalButton'>Update</button>" +
+				"<button class='updateInfoButton'>Update</button>" +
 				"</td><td>" +
 				"<button class='removeButton'>Remove</button>" +
 				"</td></tr>"
