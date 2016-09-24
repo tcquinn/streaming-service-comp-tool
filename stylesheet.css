@@ -20,7 +20,8 @@ th, td {
 th {
 	vertical-align: bottom;
 	text-align: left;
-	font-weight: bold
+	font-weight: bold;
+	background-color: #DDDDDD
 }
 
 td {
