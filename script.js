@@ -5,8 +5,8 @@ $(document).ready(function() {
 	var searchResultsList = [];
 	var movieList = [];
 	// Initialize variable to track how many update requests we are waiting for
-	var infoUpdateRequestsPending = 0;
-	// Draw HTML tables on page
+	var updateRequestsPending = 0;
+	// Draw tables on page
 	drawSearchResultsTable(searchResultsList);
 	drawMovieListTable(movieList);
 	// Event handler if user clicks on Search buttton
@@ -19,6 +19,8 @@ $(document).ready(function() {
 		var searchTerm = $('#searchBox').val();
 		// Clear search box
 		$('#searchBox').val('');
+		// Clear search results data
+		searchResultsList=[];
 		// Send search query
 		$.ajax({
 			url: "http://www.canistream.it/services/search",
@@ -29,38 +31,32 @@ $(document).ready(function() {
 			dataType: "jsonp",
 			// Callback function if request is successful
 			success: function(data, textStatus, jqXHR) {
-				// Clear search results data
-				searchResultsList=[];
 				// Check if any search results were returned
 				if(data.length > 0) {
 					// Is yes, copy search results into search results data object
 					clearSearchResultsErrorMessage();
 					for(var i=0; i < data.length; i++) {
-						searchResultsList[i] = {
+						searchResultsList.push({
 							id: data[i]['_id'],
 							title: data[i]['title'],
 							releaseYear: data[i]['year']
-						};
+						});
 					}
 				}
 				else {
 					// If no, display error message
 					displaySearchResultsErrorMessage("No search results returned");
 				}
-				// Refresh search results table on page
-				drawSearchResultsTable(searchResultsList);
 			},
 			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
-				// Clear search results data object
-				searchResultsList=[];
 				// Display error message
 				displaySearchResultsErrorMessage("Error in accessing CanIStream.It");
-				// Refresh search results table on page
-				drawSearchResultsTable(searchResultsList);
 			},
 			// Callback function whether or not request was successful
 			complete: function(jqXHR, textStatus) {
+				// Refresh search results table on page
+				drawSearchResultsTable(searchResultsList);
 				// Reset the Search button
 				$('button.searchButton').html("Search")
 				// Re-enable all buttons on page
@@ -113,7 +109,7 @@ $(document).ready(function() {
 		// Infer index of search result from position of button in table
 		var movieItemIndex = $(this).parent().parent().index();
 		// Record that we are sending two update requests
-		infoUpdateRequestsPending = infoUpdateRequestsPending + 2;
+		updateRequestsPending = updateRequestsPending + 2;
 		// Send query for instant streaming info
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
@@ -137,7 +133,7 @@ $(document).ready(function() {
 				// Refresh movie table on page
 				drawMovieListTable(movieList);
 			},
-			// Callbak function if request is not successful
+			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display an error message
 				displayMovieListErrorMessage("Error in accessing CanIStream.It")
@@ -145,9 +141,9 @@ $(document).ready(function() {
 			// Callback function whether or not request is successful
 			complete: function(jqXHR, textStatus) {
 				// Record that one of the requests has returned
-				infoUpdateRequestsPending--;
+				updateRequestsPending--;
 				// If all requests have returned,  reset Update button and re-enable all buttons
-				if(infoUpdateRequestsPending == 0) {
+				if(updateRequestsPending == 0) {
 					$(this).html("Update")
 					$('button').prop("disabled", false);					
 				}
@@ -178,7 +174,7 @@ $(document).ready(function() {
 				// Refresh movie table on page
 				drawMovieListTable(movieList);
 			},
-			// Callbak function if request is not successful
+			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display an error message
 				displayMovieListErrorMessage("Error in accessing CanIStream.It")
@@ -186,9 +182,9 @@ $(document).ready(function() {
 			// Callback function whether or not request is successful
 			complete: function(jqXHR, textStatus) {
 				// Record that one of the requests has returned
-				infoUpdateRequestsPending--;
+				updateRequestsPending--;
 				// If all requests have returned, reser Update button and re-enable all buttons
-				if(infoUpdateRequestsPending ==0) {
+				if(updateRequestsPending ==0) {
 					$(this).html("Update")
 					$('button').prop("disabled", false);					
 				}
@@ -212,7 +208,7 @@ var drawSearchResultsTable = function(searchResultsList) {
 	$('#searchResultsTableBody').empty();
 	// Check if search results data is empty
 	if(searchResultsList.length===0) {
-		// If yes, then display placeholder in table
+		// If yes, display placeholder in table
 		$('#searchResultsTableBody').append(
 			"<tr><td colspan='3'><em>No search results</em></td></tr>"
 		);
@@ -244,7 +240,7 @@ var drawMovieListTable = function(movieList) {
 			"<tr><td colspan='13'><em>No movies in list</em></td></tr>"
 		);		
 	}
-	// If not, copy data into table
+	// If no, copy data into table
 	else {
 		for(var i=0; i < movieList.length; i++) {
 			$('#movieListTableBody').append(
@@ -288,7 +284,7 @@ var displaySearchResultsErrorMessage = function(errorMessage) {
 
 // Clear error message associated with search results
 var clearSearchResultsErrorMessage = function() {
-	// Erase any error message from page
+	// Erase error message from page
 	$('#searchResultsErrorBox').empty();
 	// Hide error message section of page
 	$('#searchResultsErrorBox').css("display","none")
@@ -304,31 +300,31 @@ var displayMovieListErrorMessage = function(errorMessage) {
 
 // Clear error message associated with movie list
 var clearMovieListErrorMessage = function() {
-	// Erase any error message to the page
+	// Erase error message to the page
 	$('#movieListErrorBox').empty();
 	// Hide error message section of page
 	$('#movieListErrorBox').css("display","none")
 }
 
 // Format streaming info data
-var extractStreamingInfo = function(data, serviceName) {
+var extractStreamingInfo = function(queryResult, serviceName) {
 	// Check if streaming service appears in results
-	if(serviceName in data) {
+	if(serviceName in queryResult) {
 		// If yes, display "Y" (plus possibly price info)
 		// Check if there is price info in results
-		if('price' in data[serviceName]) {
+		if('price' in queryResult[serviceName]) {
 			// If yes, display price info in parentheses
 			// Check if price is non-zero
-			if(data[serviceName]['price'] > 0) {
+			if(queryResult[serviceName]['price'] > 0) {
 				// If yes, format price and include in parentheses
-				return("Y ($" + data[serviceName]['price'] + ")");
+				return("Y ($" + queryResult[serviceName]['price'] + ")");
 			}
 			// If no, indicate that movie is available via subscription
 			else {
 				return("Y (subscription)");
 			}
 		}
-		// If no, don't display price info
+		// If no, omit price info
 		else {
 			return("Y");
 		}
