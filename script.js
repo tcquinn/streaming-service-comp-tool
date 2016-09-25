@@ -45,13 +45,21 @@ $(document).ready(function() {
 				}
 				else {
 					// If no, display error message
-					displaySearchResultsErrorMessage("No search results returned");
+					displaySearchResultsErrorMessage(
+						'No search results for "' +
+						searchTerm +
+						'"'
+					);
 				}
 			},
 			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display error message
-				displaySearchResultsErrorMessage("Error in accessing CanIStream.It");
+				displaySearchResultsErrorMessage(
+					'Server error encountered when searching for "' +
+					searchTerm +
+					'"'
+				);
 			},
 			// Callback function whether or not request was successful
 			complete: function(jqXHR, textStatus) {
@@ -136,7 +144,11 @@ $(document).ready(function() {
 			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display an error message
-				displayMovieListErrorMessage("Error in accessing CanIStream.It")
+				displayMovieListErrorMessage(
+					'Server error encountered when updating instant streaming info for "' +
+					movieList[movieItemIndex]['title'] +
+					'"'
+				);
 			},
 			// Callback function whether or not request is successful
 			complete: function(jqXHR, textStatus) {
@@ -177,7 +189,11 @@ $(document).ready(function() {
 			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display an error message
-				displayMovieListErrorMessage("Error in accessing CanIStream.It")
+				displayMovieListErrorMessage(
+					'Server error encountered when updating streaming rental info for "' +
+					movieList[movieItemIndex]['title'] +
+					'"'
+				);
 			},
 			// Callback function whether or not request is successful
 			complete: function(jqXHR, textStatus) {
