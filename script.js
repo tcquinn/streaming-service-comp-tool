@@ -8,15 +8,15 @@ $(document).ready(function() {
 	var movieList = [];
 	// Initialize variable to track how many update requests we are waiting for
 	var updateRequestsPending = 0;
-	// Draw tables on page
+	// Initialize tables on page
 	drawSearchResultsTable(searchResultsData, searchResultsList);
 	drawMovieListTable(movieData, movieList);
 	// Event handler if user clicks on Search buttton
 	$('button.searchButton').click(function() {
-		// Disable all buttons to avoid collisions while waiting for query
-		$('button').prop("disabled", true);
+		// Disable Search button
+		$(this).prop("disabled", true);
 		// Give feedback to user that click has been recognized
-		$('button.searchButton').html("Working...");
+		$(this).html("Working...");
 		// Read user's input from search box
 		var searchTerm = $('#searchBox').val();
 		// Clear search box
@@ -32,6 +32,8 @@ $(document).ready(function() {
 			},
 			// Use JSONP to avoid same origin policy issues
 			dataType: "jsonp",
+			// Ensure that 'this' in the callback functions refers to Search button
+			context: this,
 			// Callback function if request is successful
 			success: function(searchResults, textStatus, jqXHR) {
 				// Check if any search results were returned
@@ -70,25 +72,24 @@ $(document).ready(function() {
 				// Refresh search results table on page
 				drawSearchResultsTable(searchResultsData, searchResultsList);
 				// Reset the Search button
-				$('button.searchButton').html("Search")
-				// Re-enable all buttons on page
-				$('button').prop("disabled", false);
+				$(this).html("Search")
+				// Re-enable the Search button
+				$(this).prop("disabled", false);
 			}
 		});
 	});
 	// Event handler if user presses Enter key in Search box
 	$('#searchBox').keyup(function(event) {
-		if(event.keyCode==13) {
+		if(event.keyCode===13) {
 			// Click Search button
 			$('button.searchButton').click();
 		}
 	});
 	// Event handler if user clicks on Add button next to a search result
 	$(document).on('click','button.addButton', function() {
-		// Infer index of search result from position of button in table
-		var searchResultIndex = $(this).parent().parent().index();
-		// Extract search result from search results data
-		var movieID = searchResultsList[searchResultIndex];
+		// Extract movie ID from button data
+		var movieID = $(this).data().movieid;
+		// Extract corresponding search result from search result data
 		var searchResult = searchResultsData[movieID];
 		// Check if movie is already in movie list
 		if(jQuery.inArray(movieID,movieList) > -1) {
@@ -123,6 +124,7 @@ $(document).ready(function() {
 			vuduRental: "?",
 			updatedRental: "Never"
 		};
+		// Add movie ID to movie list at the end
 		movieList.push(movieID);
 		// Refresh movie table on page
 		drawMovieListTable(movieData, movieList);
@@ -131,13 +133,12 @@ $(document).ready(function() {
 	});
 	// Event handler if user clicks on Update button next to a movie
 	$(document).on('click','button.updateInfoButton', function() {
-		// Disable all buttons to avoid collisions while waiting for query
-		$('button').prop("disabled", true);
+		// Disable Update button
+		$(this).prop("disabled", true);
 		// Give feedback to user that click has been recognized
 		$(this).html("Working...");
-		// Infer index of search result from position of button in table
-		var movieItemIndex = $(this).parent().parent().index();
-		var movieID = movieList[movieItemIndex]
+		// Extract movie ID from button data
+		var movieID = $(this).data().movieid;
 		// Record that we are sending two update requests
 		updateRequestsPending = updateRequestsPending + 2;
 		// Send query for instant streaming info
@@ -156,10 +157,13 @@ $(document).ready(function() {
 			success: function(streamingResult, textStatus, jqXHR) {
 				// Clear any previous error message
 				clearMovieListErrorMessage();
-				// Copy query results into movie data
-				movieData[movieID].netflixStreaming = extractStreamingInfo(streamingResult, 'netflix_instant');
-				movieData[movieID].amazonStreaming = extractStreamingInfo(streamingResult, 'amazon_prime_instant_video');
-				movieData[movieID].updatedStreaming = new Date();
+				// Check if movie is still in data
+				if(movieID in movieData){
+					// If yes, copy query results into movie data
+					movieData[movieID].netflixStreaming = extractStreamingInfo(streamingResult, 'netflix_instant');
+					movieData[movieID].amazonStreaming = extractStreamingInfo(streamingResult, 'amazon_prime_instant_video');
+					movieData[movieID].updatedStreaming = new Date();					
+				}
 				// Refresh movie table on page
 				drawMovieListTable(movieData, movieList);
 			},
@@ -176,10 +180,10 @@ $(document).ready(function() {
 			complete: function(jqXHR, textStatus) {
 				// Record that one of the requests has returned
 				updateRequestsPending--;
-				// If all requests have returned,  reset Update button and re-enable all buttons
-				if(updateRequestsPending == 0) {
+				// If all requests have returned, reset and re-enable Update button
+				if(updateRequestsPending === 0) {
 					$(this).html("Update")
-					$('button').prop("disabled", false);					
+					$(this).prop("disabled", false);					
 				}
 			}
 		});
@@ -199,12 +203,15 @@ $(document).ready(function() {
 			success: function(data, textStatus, jqXHR) {
 				// Clear any previous error message
 				clearMovieListErrorMessage();
-				// Copy results into movie data
-				movieData[movieID].amazonRental = extractStreamingInfo(data, 'amazon_video_rental');
-				movieData[movieID].iTunesRental = extractStreamingInfo(data, 'apple_itunes_rental');
-				movieData[movieID].googlePlayRental = extractStreamingInfo(data, 'android_rental');
-				movieData[movieID].vuduRental = extractStreamingInfo(data, 'vudu_rental');
-				movieData[movieID].updatedRental = new Date();
+				// Check if movie is still in data
+				if(movieID in movieData) {
+					// If yes, copy results into movie data
+					movieData[movieID].amazonRental = extractStreamingInfo(data, 'amazon_video_rental');
+					movieData[movieID].iTunesRental = extractStreamingInfo(data, 'apple_itunes_rental');
+					movieData[movieID].googlePlayRental = extractStreamingInfo(data, 'android_rental');
+					movieData[movieID].vuduRental = extractStreamingInfo(data, 'vudu_rental');
+					movieData[movieID].updatedRental = new Date();					
+				}
 				// Refresh movie table on page
 				drawMovieListTable(movieData, movieList);
 			},
@@ -222,7 +229,7 @@ $(document).ready(function() {
 				// Record that one of the requests has returned
 				updateRequestsPending--;
 				// If all requests have returned, reser Update button and re-enable all buttons
-				if(updateRequestsPending ==0) {
+				if(updateRequestsPending === 0) {
 					$(this).html("Update")
 					$('button').prop("disabled", false);					
 				}
@@ -231,9 +238,8 @@ $(document).ready(function() {
 	});
 	// Event handler if user clicks on Remove button next to a movie
 	$(document).on('click','button.removeButton', function() {
-		// Infer movie index from position of button in table
-		var movieItemIndex = $(this).parent().parent().index();
-		var movieID = movieList[movieItemIndex];
+		// Extract movie ID from button data
+		var movieID = $(this).data().movieid;
 		// Remove movie from movie data
 		delete movieData[movieID];
 		// Remove every occurence of movieID from movieList
@@ -268,7 +274,9 @@ var drawSearchResultsTable = function(searchResultsData, searchResultsList) {
 				"</td><td>" +
 				searchResultsData[movieID].releaseYear +
 				"</td><td>" +
-				"<button class='addButton'>Add</button>" +
+				"<button class='addButton' data-movieid='"+
+				movieID +
+				"'>Add</button>" +
 				"</td></tr>"
 			);
 		});
@@ -311,9 +319,13 @@ var drawMovieListTable = function(movieData, movieList) {
 				"</td><td>" +
 				formatDate(movieData[movieID].updatedRental) +
 				"</td><td>" +
-				"<button class='updateInfoButton'>Update</button>" +
+				"<button class='updateInfoButton' data-movieid='" +
+				movieID +
+				"'>Update</button>" +
 				"</td><td>" +
-				"<button class='removeButton'>Remove</button>" +
+				"<button class='removeButton' data-movieid='" +
+				movieID +
+				"'>Remove</button>" +
 				"</td></tr>"
 			);
 		});
