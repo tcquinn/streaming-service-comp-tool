@@ -2,13 +2,15 @@
 // Run main function once page has finished loading
 $(document).ready(function() {
 	// Initialize main data objects
+	var searchResultsData = {};
 	var searchResultsList = [];
+	var movieData = {};
 	var movieList = [];
 	// Initialize variable to track how many update requests we are waiting for
 	var updateRequestsPending = 0;
 	// Draw tables on page
-	drawSearchResultsTable(searchResultsList);
-	drawMovieListTable(movieList);
+	drawSearchResultsTable(searchResultsData, searchResultsList);
+	drawMovieListTable(movieData, movieList);
 	// Event handler if user clicks on Search buttton
 	$('button.searchButton').click(function() {
 		// Disable all buttons to avoid collisions while waiting for query
@@ -20,6 +22,7 @@ $(document).ready(function() {
 		// Clear search box
 		$('#searchBox').val('');
 		// Clear search results data
+		searchResultsData = {};
 		searchResultsList=[];
 		// Send search query
 		$.ajax({
@@ -30,18 +33,19 @@ $(document).ready(function() {
 			// Use JSONP to avoid same origin policy issues
 			dataType: "jsonp",
 			// Callback function if request is successful
-			success: function(data, textStatus, jqXHR) {
+			success: function(searchResults, textStatus, jqXHR) {
 				// Check if any search results were returned
-				if(data.length > 0) {
+				if(searchResults.length > 0) {
 					// Is yes, copy search results into search results data object
 					clearSearchResultsErrorMessage();
-					for(var i=0; i < data.length; i++) {
-						searchResultsList.push({
-							id: data[i]['_id'],
-							title: data[i]['title'],
-							releaseYear: data[i]['year']
-						});
-					}
+					searchResults.forEach(function(searchResult){
+						var movieID = searchResult._id;
+						searchResultsData[movieID] = {
+							title: searchResult.title,
+							releaseYear: searchResult.year
+						};
+						searchResultsList.push(movieID);
+					});
 				}
 				else {
 					// If no, display error message
@@ -64,7 +68,7 @@ $(document).ready(function() {
 			// Callback function whether or not request was successful
 			complete: function(jqXHR, textStatus) {
 				// Refresh search results table on page
-				drawSearchResultsTable(searchResultsList);
+				drawSearchResultsTable(searchResultsData, searchResultsList);
 				// Reset the Search button
 				$('button.searchButton').html("Search")
 				// Re-enable all buttons on page
@@ -84,14 +88,30 @@ $(document).ready(function() {
 		// Infer index of search result from position of button in table
 		var searchResultIndex = $(this).parent().parent().index();
 		// Extract search result from search results data
-		var searchResult = searchResultsList[searchResultIndex];
+		var movieID = searchResultsList[searchResultIndex];
+		var searchResult = searchResultsData[movieID];
+		// Check if movie is already in movie list
+		if(jQuery.inArray(movieID,movieList) > -1) {
+			displayMovieListErrorMessage(
+				'"' +
+				searchResult.title +
+				'" is already in movie list'
+			);
+			return;
+		}
 		// Remove search result from search result data
-		searchResultsList.splice(searchResultIndex,1);
+		delete searchResultsData[movieID];
+		// Remove every occurence of movieID from searchResultsList
+		// Handles edge case in which list has accumulated duplicates
+		// Use jQuery.inArray of indexOf() or filter() for compatibility with older browsers
+		var i;
+		while ((i = jQuery.inArray(movieID,searchResultsList)) > -1) {
+			searchResultsList.splice(i,1);
+		}
 		// Refresh search results table on page
-		drawSearchResultsTable(searchResultsList);
+		drawSearchResultsTable(searchResultsData, searchResultsList);
 		// Add search result to movie data, filling in placeholders for now
-		movieList.push({
-			id: searchResult.id,
+		movieData[movieID] = {
 			title: searchResult.title,
 			releaseYear: searchResult.releaseYear,
 			netflixStreaming: "?",
@@ -102,9 +122,10 @@ $(document).ready(function() {
 			googlePlayRental: "?",
 			vuduRental: "?",
 			updatedRental: "Never"
-		});
+		};
+		movieList.push(movieID);
 		// Refresh movie table on page
-		drawMovieListTable(movieList);
+		drawMovieListTable(movieData, movieList);
 		// Click Update button next to movie to fill in the streaming info
 		$('button.updateInfoButton').last().click();
 	});
@@ -116,13 +137,14 @@ $(document).ready(function() {
 		$(this).html("Working...");
 		// Infer index of search result from position of button in table
 		var movieItemIndex = $(this).parent().parent().index();
+		var movieID = movieList[movieItemIndex]
 		// Record that we are sending two update requests
 		updateRequestsPending = updateRequestsPending + 2;
 		// Send query for instant streaming info
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
 			data: {
-				movieId: movieList[movieItemIndex]['id'],
+				movieId: movieID,
 				attributes: "1",
 				mediaType: "streaming"
 			},
@@ -131,22 +153,22 @@ $(document).ready(function() {
 			// Ensure that 'this' in the callback functions refer to Update button
 			context: this,
 			// Callback function if request is successful
-			success: function(data, textStatus, jqXHR) {
+			success: function(streamingResult, textStatus, jqXHR) {
 				// Clear any previous error message
 				clearMovieListErrorMessage();
 				// Copy query results into movie data
-				movieList[movieItemIndex]['netflixStreaming'] = extractStreamingInfo(data, 'netflix_instant');
-				movieList[movieItemIndex]['amazonStreaming'] = extractStreamingInfo(data, 'amazon_prime_instant_video');
-				movieList[movieItemIndex]['updatedStreaming'] = new Date();
+				movieData[movieID].netflixStreaming = extractStreamingInfo(streamingResult, 'netflix_instant');
+				movieData[movieID].amazonStreaming = extractStreamingInfo(streamingResult, 'amazon_prime_instant_video');
+				movieData[movieID].updatedStreaming = new Date();
 				// Refresh movie table on page
-				drawMovieListTable(movieList);
+				drawMovieListTable(movieData, movieList);
 			},
 			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display an error message
 				displayMovieListErrorMessage(
 					'Server error encountered when updating instant streaming info for "' +
-					movieList[movieItemIndex]['title'] +
+					movieData[movieID].title +
 					'"'
 				);
 			},
@@ -165,7 +187,7 @@ $(document).ready(function() {
 		$.ajax({
 			url: "http://www.canistream.it/services/query",
 			data: {
-				movieId: movieList[movieItemIndex]['id'],
+				movieId: movieID,
 				attributes: "1",
 				mediaType: "rental"
 			},
@@ -178,20 +200,20 @@ $(document).ready(function() {
 				// Clear any previous error message
 				clearMovieListErrorMessage();
 				// Copy results into movie data
-				movieList[movieItemIndex]['amazonRental'] = extractStreamingInfo(data, 'amazon_video_rental');
-				movieList[movieItemIndex]['iTunesRental'] = extractStreamingInfo(data, 'apple_itunes_rental');
-				movieList[movieItemIndex]['googlePlayRental'] = extractStreamingInfo(data, 'android_rental');
-				movieList[movieItemIndex]['vuduRental'] = extractStreamingInfo(data, 'vudu_rental');
-				movieList[movieItemIndex]['updatedRental'] = new Date();
+				movieData[movieID].amazonRental = extractStreamingInfo(data, 'amazon_video_rental');
+				movieData[movieID].iTunesRental = extractStreamingInfo(data, 'apple_itunes_rental');
+				movieData[movieID].googlePlayRental = extractStreamingInfo(data, 'android_rental');
+				movieData[movieID].vuduRental = extractStreamingInfo(data, 'vudu_rental');
+				movieData[movieID].updatedRental = new Date();
 				// Refresh movie table on page
-				drawMovieListTable(movieList);
+				drawMovieListTable(movieData, movieList);
 			},
 			// Callback function if request is not successful
 			error: function(jqXHR, textStatus, errorThrown) {
 				// Display an error message
 				displayMovieListErrorMessage(
 					'Server error encountered when updating streaming rental info for "' +
-					movieList[movieItemIndex]['title'] +
+					movieData[movieID].title +
 					'"'
 				);
 			},
@@ -211,15 +233,23 @@ $(document).ready(function() {
 	$(document).on('click','button.removeButton', function() {
 		// Infer movie index from position of button in table
 		var movieItemIndex = $(this).parent().parent().index();
+		var movieID = movieList[movieItemIndex];
 		// Remove movie from movie data
-		movieList.splice(movieItemIndex,1);
+		delete movieData[movieID];
+		// Remove every occurence of movieID from movieList
+		// Handles edge case in which list has accumulated duplicates
+		// Use jQuery.inArray of indexOf() or filter() for compatibility with older browsers
+		var i;
+		while ((i = jQuery.inArray(movieID, movieList)) > -1) {
+			movieList.splice(i,1);
+		}
 		// Refresh movie table on page
-		drawMovieListTable(movieList);
+		drawMovieListTable(movieData, movieList);
 	});
 });
 
 // Refresh search results table on page
-var drawSearchResultsTable = function(searchResultsList) {
+var drawSearchResultsTable = function(searchResultsData, searchResultsList) {
 	// Clear search results table on page
 	$('#searchResultsTableBody').empty();
 	// Check if search results data is empty
@@ -231,22 +261,22 @@ var drawSearchResultsTable = function(searchResultsList) {
 	}
 	// If no, copy data into table
 	else {
-		for(var i=0; i < searchResultsList.length; i++) {
+		searchResultsList.forEach(function(movieID) {
 			$('#searchResultsTableBody').append(
 				"<tr><td>" +
-				searchResultsList[i].title +
+				searchResultsData[movieID].title +
 				"</td><td>" +
-				searchResultsList[i].releaseYear +
+				searchResultsData[movieID].releaseYear +
 				"</td><td>" +
 				"<button class='addButton'>Add</button>" +
 				"</td></tr>"
 			);
-		}
+		});
 	}
 }
 
 // Refresh movie table on page
-var drawMovieListTable = function(movieList) {
+var drawMovieListTable = function(movieData, movieList) {
 	// Clear movie table on page
 	$('#movieListTableBody').empty();
 	// Check if movie data is empty
@@ -258,35 +288,35 @@ var drawMovieListTable = function(movieList) {
 	}
 	// If no, copy data into table
 	else {
-		for(var i=0; i < movieList.length; i++) {
+		movieList.forEach(function(movieID) {
 			$('#movieListTableBody').append(
 				"<tr><td>" +
-				movieList[i].title +
+				movieData[movieID].title +
 				"</td><td>" +
-				movieList[i].releaseYear +
+				movieData[movieID].releaseYear +
 				"</td><td>" +
-				movieList[i].netflixStreaming +
+				movieData[movieID].netflixStreaming +
 				"</td><td>" +
-				movieList[i].amazonStreaming +
+				movieData[movieID].amazonStreaming +
 				"</td><td>" +
-				formatDate(movieList[i].updatedStreaming) +
+				formatDate(movieData[movieID].updatedStreaming) +
 				"</td><td>" +
-				movieList[i].amazonRental +
+				movieData[movieID].amazonRental +
 				"</td><td>" +
-				movieList[i].iTunesRental +
+				movieData[movieID].iTunesRental +
 				"</td><td>" +
-				movieList[i].googlePlayRental +
+				movieData[movieID].googlePlayRental +
 				"</td><td>" +
-				movieList[i].vuduRental +
+				movieData[movieID].vuduRental +
 				"</td><td>" +
-				formatDate(movieList[i].updatedRental) +
+				formatDate(movieData[movieID].updatedRental) +
 				"</td><td>" +
 				"<button class='updateInfoButton'>Update</button>" +
 				"</td><td>" +
 				"<button class='removeButton'>Remove</button>" +
 				"</td></tr>"
 			);
-		}
+		});
 	}
 }
 
