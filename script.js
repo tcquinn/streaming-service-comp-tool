@@ -11,16 +11,16 @@ $(document).ready(function() {
 	// Initialize tables on page
 	drawSearchResultsTable(searchResultsData, searchResultsList);
 	drawMovieListTable(movieData, movieList);
+	// Clear error boxes
+	clearSearchResultsErrorMessage();
+	clearMovieListErrorMessage();
 	// Event handler if user clicks on Search buttton
 	$('button.searchButton').click(function() {
-		// Disable Search button
-		$(this).prop("disabled", true);
-		// Give feedback to user that click has been recognized
-		$(this).html("Working...");
+		// Disable search button and search box
+		$(this).addClass("disabled");
+		$('#searchBox').prop('disabled', true);
 		// Read user's input from search box
 		var searchTerm = $('#searchBox').val();
-		// Clear search box
-		$('#searchBox').val('');
 		// Clear search results data
 		searchResultsData = {};
 		searchResultsList=[];
@@ -38,7 +38,7 @@ $(document).ready(function() {
 			success: function(searchResults, textStatus, jqXHR) {
 				// Check if any search results were returned
 				if(searchResults.length > 0) {
-					// Is yes, copy search results into search results data object
+					// Is yes, clear error messages and copy search results into search results data object
 					clearSearchResultsErrorMessage();
 					searchResults.forEach(function(searchResult){
 						var movieID = searchResult._id;
@@ -71,10 +71,11 @@ $(document).ready(function() {
 			complete: function(jqXHR, textStatus) {
 				// Refresh search results table on page
 				drawSearchResultsTable(searchResultsData, searchResultsList);
-				// Reset the Search button
-				$(this).html("Search")
-				// Re-enable the Search button
-				$(this).prop("disabled", false);
+				// Clear search box
+				$('#searchBox').val('');
+				// Re-enable the search button and search box
+				$('#searchBox').prop('disabled', false);
+				$(this).removeClass("disabled");
 			}
 		});
 	});
@@ -85,7 +86,7 @@ $(document).ready(function() {
 			$('button.searchButton').click();
 		}
 	});
-	// Event handler if user clicks on Add button next to a search result
+	// Event handler if user clicks on add button next to a search result
 	$(document).on('click','button.addButton', function() {
 		// Extract movie ID from button data
 		var movieID = $(this).data().movieid;
@@ -134,9 +135,7 @@ $(document).ready(function() {
 	// Event handler if user clicks on Update button next to a movie
 	$(document).on('click','button.updateInfoButton', function() {
 		// Disable Update button
-		$(this).prop("disabled", true);
-		// Give feedback to user that click has been recognized
-		$(this).html("Working...");
+		$(this).addClass("disabled");
 		// Extract movie ID from button data
 		var movieID = $(this).data().movieid;
 		// Record that we are sending two update requests
@@ -180,10 +179,9 @@ $(document).ready(function() {
 			complete: function(jqXHR, textStatus) {
 				// Record that one of the requests has returned
 				updateRequestsPending--;
-				// If all requests have returned, reset and re-enable Update button
+				// If all requests have returned, re-enable update button
 				if(updateRequestsPending === 0) {
-					$(this).html("Update")
-					$(this).prop("disabled", false);					
+					$(this).removeClass("disabled");					
 				}
 			}
 		});
@@ -228,10 +226,9 @@ $(document).ready(function() {
 			complete: function(jqXHR, textStatus) {
 				// Record that one of the requests has returned
 				updateRequestsPending--;
-				// If all requests have returned, reser Update button and re-enable all buttons
+				// If all requests have returned, re-enable update button
 				if(updateRequestsPending === 0) {
-					$(this).html("Update")
-					$('button').prop("disabled", false);					
+					$(this).removeClass("disabled");						
 				}
 			}
 		});
@@ -274,9 +271,9 @@ var drawSearchResultsTable = function(searchResultsData, searchResultsList) {
 				"</td><td>" +
 				searchResultsData[movieID].releaseYear +
 				"</td><td>" +
-				"<button class='addButton' data-movieid='"+
+				"<button type='button' class='btn btn-default addButton' data-movieid='"+
 				movieID +
-				"'>Add</button>" +
+				"'><span class='glyphicon  glyphicon-plus'></span></button>" +
 				"</td></tr>"
 			);
 		});
@@ -319,13 +316,13 @@ var drawMovieListTable = function(movieData, movieList) {
 				"</td><td>" +
 				formatDate(movieData[movieID].updatedRental) +
 				"</td><td>" +
-				"<button class='updateInfoButton' data-movieid='" +
+				"<button type='button' class='btn btn-default updateInfoButton' data-movieid='" +
 				movieID +
-				"'>Update</button>" +
+				"'><span class='glyphicon glyphicon-refresh'></span></button>" +
 				"</td><td>" +
-				"<button class='removeButton' data-movieid='" +
+				"<button type='button' class='btn btn-default removeButton' data-movieid='" +
 				movieID +
-				"'>Remove</button>" +
+				"'><span class='glyphicon  glyphicon-remove'></span></button>" +
 				"</td></tr>"
 			);
 		});
@@ -335,7 +332,11 @@ var drawMovieListTable = function(movieData, movieList) {
 // Display error message associated with search results
 var displaySearchResultsErrorMessage = function(errorMessage) {
 	// Write error message to page
-	$('#searchResultsErrorBox').text(errorMessage);
+	$('#searchResultsErrorBox').html(
+		'<div class="alert alert-warning" id="searchResultsErrorBox" display="none">' +
+		'<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>' + 
+		errorMessage +
+		'</div>');
 	// Unhide error message section of page
 	$('#searchResultsErrorBox').css("display","block")
 }
@@ -351,7 +352,11 @@ var clearSearchResultsErrorMessage = function() {
 // Display error message associated with movie list
 var displayMovieListErrorMessage = function(errorMessage) {
 	// Write error message to page
-	$('#movieListErrorBox').text(errorMessage);
+	$('#movieListErrorBox').html(
+		'<div class="alert alert-warning" id="searchResultsErrorBox" display="none">' +
+		'<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>' + 
+		errorMessage +
+		'</div>');
 	// Unhide error message section of page
 	$('#movieListErrorBox').css("display","block")
 }
@@ -375,21 +380,21 @@ var extractStreamingInfo = function(queryResult, serviceName) {
 			// Check if price is non-zero
 			if(queryResult[serviceName]['price'] > 0) {
 				// If yes, format price and include in parentheses
-				return("Y ($" + queryResult[serviceName]['price'] + ")");
+				return("<span class='glyphicon glyphicon-ok'></span> ($" + queryResult[serviceName]['price'] + ")");
 			}
-			// If no, indicate that movie is available via subscription
+			// If no, omit price info
 			else {
-				return("Y (subscription)");
+				return("<span class='glyphicon glyphicon-ok'></span>");
 			}
 		}
 		// If no, omit price info
 		else {
-			return("Y");
+			return("<span class='glyphicon glyphicon-ok'></span>");
 		}
 	}
-	// If no, display "N"
+	// If no, display a blank
 	else {
-		return("N");
+		return("");
 	}
 }
 

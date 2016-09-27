@@ -1,35 +1,4 @@
-* {
-	font-family: sans-serif;
-}
+/*
+This stylesheet is empty for now (we're using default Bootstrap styling)
+*/
 
-button {
-	border-radius: 5px;
-}
-
-table {
-    border-collapse: collapse;
-}
-
-table, th, td {
-    border: 1px solid black;
-}
-
-th, td {
-	padding: 5px
-}
-th {
-	vertical-align: bottom;
-	text-align: left;
-	font-weight: bold;
-	background-color: #DDDDDD
-}
-
-td {
-	vertical-align: top
-}
-
-.error-section {
-	display: none;
-	font-weight: bold;
-	color: red
-}
